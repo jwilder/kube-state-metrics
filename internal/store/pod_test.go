@@ -23,6 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kube-state-metrics/v2/pkg/metric"
 
 	generator "k8s.io/kube-state-metrics/v2/pkg/metric_generator"
 	"k8s.io/kube-state-metrics/v2/pkg/options"
@@ -2181,8 +2182,8 @@ func TestPodStore(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		c.Func = generator.ComposeMetricGenFuncs(podMetricFamilies(c.AllowAnnotationsList, c.AllowLabelsList))
-		c.Headers = generator.ExtractMetricFamilyHeaders(podMetricFamilies(c.AllowAnnotationsList, c.AllowLabelsList))
+		c.Func = generator.ComposeMetricGenFuncs(podMetricFamilies(c.AllowAnnotationsList, c.AllowLabelsList, KeepAllFilter))
+		c.Headers = generator.ExtractMetricFamilyHeaders(podMetricFamilies(c.AllowAnnotationsList, c.AllowLabelsList, KeepAllFilter))
 		if err := c.run(); err != nil {
 			t.Errorf("unexpected collecting result in %vth run:\n%s", i, err)
 		}
@@ -2192,7 +2193,7 @@ func TestPodStore(t *testing.T) {
 func BenchmarkPodStore(b *testing.B) {
 	b.ReportAllocs()
 
-	f := generator.ComposeMetricGenFuncs(podMetricFamilies(nil, nil))
+	f := generator.ComposeMetricGenFuncs(podMetricFamilies(nil, nil, KeepAllFilter))
 
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2288,5 +2289,63 @@ func BenchmarkPodStore(b *testing.B) {
 		if len(families) != expectedFamilies {
 			b.Fatalf("expected %d but got %v", expectedFamilies, len(families))
 		}
+	}
+}
+
+func TestDropFalseFilter(t *testing.T) {
+	tests := []struct {
+		name       string
+		metric     *metric.Metric
+		wantResult bool
+	}{
+		{
+			name: "Boolean condition is false",
+			metric: &metric.Metric{
+				LabelValues: []string{"false"},
+				Value:       1,
+			},
+			wantResult: true,
+		},
+		{
+			name: "Boolean condition is true",
+			metric: &metric.Metric{
+				LabelValues: []string{"true"},
+				Value:       1,
+			},
+			wantResult: false,
+		},
+		{
+			name: "Boolean condition is unknown",
+			metric: &metric.Metric{
+				LabelValues: []string{"unknown"},
+				Value:       1,
+			},
+			wantResult: false,
+		},
+		{
+			name: "Non-boolean condition with value 0",
+			metric: &metric.Metric{
+				LabelValues: []string{"non-boolean"},
+				Value:       0,
+			},
+			wantResult: true,
+		},
+		{
+			name: "Non-boolean condition with value 1",
+			metric: &metric.Metric{
+				LabelValues: []string{"non-boolean"},
+				Value:       1,
+			},
+			wantResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResult := DropFalseFilter(tt.metric)
+			if gotResult != tt.wantResult {
+				t.Errorf("DropFalseFilter() = %v, want %v", gotResult, tt.wantResult)
+			}
+		})
 	}
 }
