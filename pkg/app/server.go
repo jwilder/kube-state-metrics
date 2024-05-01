@@ -42,7 +42,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Initialize common client auth plugins.
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-
 	"k8s.io/kube-state-metrics/v2/internal/discovery"
 	"k8s.io/kube-state-metrics/v2/internal/store"
 	"k8s.io/kube-state-metrics/v2/pkg/allowdenylist"
@@ -224,6 +223,11 @@ func RunKubeStateMetrics(ctx context.Context, opts *options.Options) error {
 	}
 
 	klog.InfoS("Metric allow-denylisting", "allowDenyStatus", allowDenyList.Status())
+
+	if opts.Changed("metric-keep-true") {
+		klog.Info("Dropping series with false values")
+		storeBuilder.WithMetricFilter(store.DropFalseFilter)
+	}
 
 	optInMetricFamilyFilter, err := optin.NewMetricFamilyFilter(opts.MetricOptInList)
 	if err != nil {

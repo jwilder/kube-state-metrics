@@ -42,6 +42,7 @@ type Options struct {
 	MetricAllowlist          MetricSet       `yaml:"metric_allowlist"`
 	MetricDenylist           MetricSet       `yaml:"metric_denylist"`
 	MetricOptInList          MetricSet       `yaml:"metric_opt_in_list"`
+	MetricKeepTrue           bool            `yaml:"metric_keep_true""`
 	Namespace                string          `yaml:"namespace"`
 	Namespaces               NamespaceList   `yaml:"namespaces"`
 	NamespacesDenylist       NamespaceList   `yaml:"namespaces_denylist"`
@@ -143,6 +144,7 @@ func (o *Options) AddFlags(cmd *cobra.Command) {
 	o.cmd.Flags().Var(&o.MetricAllowlist, "metric-allowlist", "Comma-separated list of metrics to be exposed. This list comprises of exact metric names and/or regex patterns. The allowlist and denylist are mutually exclusive.")
 	o.cmd.Flags().Var(&o.MetricDenylist, "metric-denylist", "Comma-separated list of metrics not to be enabled. This list comprises of exact metric names and/or regex patterns. The allowlist and denylist are mutually exclusive.")
 	o.cmd.Flags().Var(&o.MetricOptInList, "metric-opt-in-list", "Comma-separated list of metrics which are opt-in and not enabled by default. This is in addition to the metric allow- and denylists")
+	o.cmd.Flags().BoolVar(&o.MetricKeepTrue, "metric-keep-true", false, "Only keep series with positive values for conditions or states.  By default, all metric values are kept.")
 	o.cmd.Flags().Var(&o.Namespaces, "namespaces", fmt.Sprintf("Comma-separated list of namespaces to be enabled. Defaults to %q", &DefaultNamespaces))
 	o.cmd.Flags().Var(&o.NamespacesDenylist, "namespaces-denylist", "Comma-separated list of namespaces not to be enabled. If namespaces and namespaces-denylist are both set, only namespaces that are excluded in namespaces-denylist will be used.")
 	o.cmd.Flags().Var(&o.Resources, "resources", fmt.Sprintf("Comma-separated list of Resources to be enabled. Defaults to %q", &DefaultResources))
@@ -171,4 +173,9 @@ func (o *Options) Validate() error {
 		}
 	}
 	return nil
+}
+
+// Changed returns true if the value of the flag with the given name was changed.
+func (o *Options) Changed(name string) bool {
+	return o.cmd.Flags().Changed(name)
 }
